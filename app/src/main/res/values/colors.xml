@@ -3,6 +3,10 @@
     <color name="colorPrimary">#3F51B5</color>
     <color name="colorPrimaryDark">#303F9F</color>
     <color name="colorAccent">#FF4081</color>
-    <color name="white_transparent_40">#40000000</color>
+    <color name="black_transparent_40">#40000000</color>
+    <color name="black_transparent_98">#98000000</color>
+    <color name="gray_tr_33_59">#33595959</color>
+    <color name="text_color_light_gray">#898989</color>
+    <color name="gray_ee">#EEEEEE</color>
 
 </resources>

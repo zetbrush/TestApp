@@ -10,25 +10,13 @@ import zetbrush.com.testapp.TestAppApplication;
 
 public final class TwitterConfigurationBuilder {
 
-	private static TwitterConfigurationBuilder INSTANCE;
 
 	private final ConfigurationBuilder builder;
 
-	private TwitterConfigurationBuilder() {
+	public TwitterConfigurationBuilder() {
 		builder = new ConfigurationBuilder();
 		builder.setOAuthConsumerKey(TestAppApplication.TWITTER_KEY);
 		builder.setOAuthConsumerSecret(TestAppApplication.TWITTER_SECRET);
-	}
-
-	public static TwitterConfigurationBuilder getInstance() {
-		if (INSTANCE == null) {
-			synchronized (TwitterConfigurationBuilder.class) {
-				if (INSTANCE == null) {
-					INSTANCE = new TwitterConfigurationBuilder();
-				}
-			}
-		}
-		return INSTANCE;
 	}
 
 

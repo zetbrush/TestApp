@@ -8,7 +8,6 @@ import android.util.Log;
 
 import com.twitter.sdk.android.core.Callback;
 import com.twitter.sdk.android.core.Result;
-import com.twitter.sdk.android.core.TwitterAuthToken;
 import com.twitter.sdk.android.core.TwitterCore;
 import com.twitter.sdk.android.core.TwitterException;
 import com.twitter.sdk.android.core.TwitterSession;
@@ -24,7 +23,7 @@ import zetbrush.com.testapp.R;
 public class LoginActivity extends AppCompatActivity {
 	private TwitterLoginButton loginButton;
 	private TwitterAuthClient authClient;
-	private Intent mainPageIntent;
+	private Intent feedIntent;
 
 
 	@Override
@@ -43,8 +42,6 @@ public class LoginActivity extends AppCompatActivity {
 		loginButton.setCallback(new Callback<TwitterSession>() {
 			@Override
 			public void success(Result<TwitterSession> result) {
-				TwitterSession session = TwitterCore.getInstance().getSessionManager().getActiveSession();
-				TwitterAuthToken authToken = session.getAuthToken();
 				openFeed();
 
 			}
@@ -58,9 +55,9 @@ public class LoginActivity extends AppCompatActivity {
 
 
 	private void openFeed() {
-		mainPageIntent = new Intent();
-		mainPageIntent.setClass(LoginActivity.this, FeedActivity.class);
-		startActivity(mainPageIntent);
+		feedIntent = new Intent();
+		feedIntent.setClass(LoginActivity.this, FeedActivity.class);
+		startActivity(feedIntent);
 		LoginActivity.this.finish();
 	}
 

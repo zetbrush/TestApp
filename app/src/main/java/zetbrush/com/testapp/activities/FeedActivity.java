@@ -2,18 +2,21 @@ package zetbrush.com.testapp.activities;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
-import android.support.design.widget.NavigationView;
+import android.support.v4.content.FileProvider;
 import android.support.v4.content.PermissionChecker;
-import android.support.v4.view.GravityCompat;
-import android.support.v4.widget.DrawerLayout;
-import android.support.v7.app.ActionBarDrawerToggle;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -27,37 +30,42 @@ import android.view.animation.Animation;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import com.facebook.common.util.UriUtil;
 import com.facebook.drawee.view.SimpleDraweeView;
-import com.twitter.sdk.android.core.TwitterApiClient;
 import com.twitter.sdk.android.core.TwitterAuthToken;
 import com.twitter.sdk.android.core.TwitterCore;
-import com.twitter.sdk.android.core.identity.TwitterAuthClient;
 
 import java.io.File;
+import java.io.IOException;
 
 import twitter4j.AsyncTwitter;
 import twitter4j.AsyncTwitterFactory;
+import twitter4j.ResponseList;
 import twitter4j.Status;
 import twitter4j.StatusUpdate;
-import twitter4j.Twitter;
 import twitter4j.TwitterAdapter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterListener;
 import twitter4j.TwitterMethod;
 import twitter4j.conf.Configuration;
 import zetbrush.com.testapp.R;
+import zetbrush.com.testapp.adapters.UserHomeTimelineAdapter;
 import zetbrush.com.testapp.consts.CommonConstants;
 import zetbrush.com.testapp.fresco.FrescoLoader;
+import zetbrush.com.testapp.helpers.ActiveSessionChecker;
+import zetbrush.com.testapp.helpers.CameraCaptureHelper;
+import zetbrush.com.testapp.popuputils.PopupBuilder;
+import zetbrush.com.testapp.receivers.NetworkStateReceiver;
 import zetbrush.com.testapp.twitterconfig.TwitterConfigurationBuilder;
 
-public class FeedActivity extends AppCompatActivity
-		implements NavigationView.OnNavigationItemSelectedListener {
+import static zetbrush.com.testapp.consts.CommonConstants.CONNECTIVITY_CHANGE_ACTION;
+import static zetbrush.com.testapp.consts.CommonConstants.REQUEST_IMAGE_CAPTURE;
+import static zetbrush.com.testapp.consts.CommonConstants.REQUEST_PICK_IMAGE;
 
-	private ActionBarDrawerToggle toggle;
-	private DrawerLayout drawer;
+public class FeedActivity extends AppCompatActivity {
 
 	private ImageButton attachGalleryImageBtn;
 	private ImageButton attachCameraImageBtn;
@@ -69,18 +77,22 @@ public class FeedActivity extends AppCompatActivity
 
 	private StringBuilder tweetText = new StringBuilder();
 	private String attachedImagePath;
+	private String attachedCapturedImagePath;
 
 	private FrescoLoader frescoLoader;
-	private TwitterApiClient apiClient;
-	private TwitterAuthClient authClient;
 	private ViewGroup progressContainer;
-	private Twitter mTwitter;
+	private RecyclerView recyclerViewFeedContent;
+	private UserHomeTimelineAdapter homeTimelineAdapter;
+	private SwipeRefreshLayout swipeRefreshLayout;
+	private NetworkStateReceiver networkStateReceiver;
+	private PopupWindow popupWindow;
+	private boolean isActive;
 
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		setContentView(R.layout.activity_main);
+		setContentView(R.layout.app_bar_main);
 		Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
 		setSupportActionBar(toolbar);
 
@@ -88,35 +100,16 @@ public class FeedActivity extends AppCompatActivity
 
 		initListeners();
 
+		initNetworkAnalyzer();
+
 		frescoLoader = new FrescoLoader();
 
-		apiClient = TwitterCore.getInstance().getApiClient();
-		authClient = new TwitterAuthClient();
 		progressContainer.setVisibility(View.VISIBLE);
 
-		drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-		toggle = new ActionBarDrawerToggle(
-				this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
-		drawer.addDrawerListener(toggle);
-		toggle.syncState();
-
-		NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
-		navigationView.setNavigationItemSelectedListener(this);
-
 		progressContainer.setVisibility(View.GONE);
-		drawer.addDrawerListener(toggle);
-		toggle.syncState();
 
-	}
+		initAndLoadFeed();
 
-	@Override
-	public void onBackPressed() {
-		DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-		if (drawer.isDrawerOpen(GravityCompat.START)) {
-			drawer.closeDrawer(GravityCompat.START);
-		} else {
-			super.onBackPressed();
-		}
 	}
 
 	@Override
@@ -137,27 +130,6 @@ public class FeedActivity extends AppCompatActivity
 		return super.onOptionsItemSelected(item);
 	}
 
-	@SuppressWarnings("StatementWithEmptyBody")
-	@Override
-	public boolean onNavigationItemSelected(MenuItem item) {
-		int id = item.getItemId();
-
-		if (id == R.id.nav_feed) {
-			// Handle the feed action
-		}
-		DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-		drawer.closeDrawer(GravityCompat.START);
-		return true;
-	}
-
-	@Override
-	protected void onDestroy() {
-		super.onDestroy();
-		if (toggle != null && drawer != null) {
-			drawer.removeDrawerListener(toggle);
-		}
-	}
-
 	private void initViews() {
 		tweetButton = (ImageButton) findViewById(R.id.tweet_btn);
 		tweetTextView = (EditText) findViewById(R.id.tweet_text);
@@ -167,6 +139,42 @@ public class FeedActivity extends AppCompatActivity
 		attachedImagePreview = (SimpleDraweeView) attachedImageContainer.findViewById(R.id.attached_image);
 		deleteAttachmentBtn = (ImageButton) attachedImageContainer.findViewById(R.id.delete_image);
 		progressContainer = (ViewGroup) findViewById(R.id.progress_container);
+		recyclerViewFeedContent = (RecyclerView) findViewById(R.id.feed_content);
+		swipeRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_refresh_feed);
+	}
+
+	private void initNetworkAnalyzer() {
+		networkStateReceiver = new NetworkStateReceiver();
+
+		networkStateReceiver.setCallback(new NetworkStateReceiver.Callback() {
+			@Override
+			public void onNetworkAvailable() {
+				if (popupWindow != null && popupWindow.isShowing()) {
+					popupWindow.dismiss();
+				}
+			}
+
+			@Override
+			public void onNetworkLost() {
+				if (isActive) {
+					if (popupWindow != null && popupWindow.isShowing()) {
+						return;
+					}
+					attachedImageContainer.post(new Runnable() {
+						@Override
+						public void run() {
+							popupWindow = PopupBuilder.createNoNetworkPopupWindow(FeedActivity.this, (ViewGroup) ((ViewGroup)
+									findViewById(android.R.id.content)).getChildAt(0));
+							popupWindow.showAsDropDown(attachedImageContainer);
+						}
+					});
+
+				}
+			}
+		});
+		IntentFilter filter = new IntentFilter();
+		filter.addAction(CONNECTIVITY_CHANGE_ACTION);
+		registerReceiver(networkStateReceiver, filter);
 	}
 
 	private void initListeners() {
@@ -194,6 +202,9 @@ public class FeedActivity extends AppCompatActivity
 			public void onClick(View v) {
 				switch (v.getId()) {
 					case R.id.tweet_btn: {
+						if (tweetText.length() == 0 && TextUtils.isEmpty(attachedImagePath)) {
+							return;
+						}
 						executeTweet();
 						break;
 					}
@@ -220,18 +231,19 @@ public class FeedActivity extends AppCompatActivity
 		deleteAttachmentBtn.setOnClickListener(groupedClickListener);
 		tweetButton.setOnClickListener(groupedClickListener);
 
+		swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+			@Override
+			public void onRefresh() {
+				initAndLoadFeed();
+			}
+		});
+
 	}
 
 
 	private void executeTweet() {
-		if (apiClient == null) {
-			apiClient = TwitterCore.getInstance().getApiClient();
-			if (TwitterCore.getInstance().getSessionManager().getActiveSession() == null) {
-				// our session  has expired routing to login
-				// FIXME: 12/27/16
-				finish();
-			}
-
+		if (!ActiveSessionChecker.isActiveSessionValid(this, true)) {
+			return;
 		}
 
 		try {
@@ -244,7 +256,7 @@ public class FeedActivity extends AppCompatActivity
 	}
 
 	public void updateStatus(TwitterAuthToken token, File file, String message) throws Exception {
-		Configuration configuration = TwitterConfigurationBuilder.getInstance().setAccessToken(token.token, token.secret).build();
+		Configuration configuration = new TwitterConfigurationBuilder().setAccessToken(token.token, token.secret).build();
 
 		TwitterListener listener = new TwitterAdapter() {
 			@Override
@@ -254,6 +266,17 @@ public class FeedActivity extends AppCompatActivity
 					public void run() {
 						progressContainer.setVisibility(View.GONE);
 						removeAttachment();
+						Handler handler = new Handler();
+						handler.postDelayed(new Runnable() {
+							@Override
+							public void run() {
+								if (!FeedActivity.this.isFinishing()) {
+									swipeRefreshLayout.setRefreshing(true);
+									initAndLoadFeed();
+								}
+							}
+						}, 400);
+
 						if (!isFinishing()) {
 							Toast.makeText(FeedActivity.this, " Tweeted successfully!", Toast.LENGTH_SHORT).show();
 						}
@@ -271,7 +294,8 @@ public class FeedActivity extends AppCompatActivity
 						if (method == TwitterMethod.UPDATE_STATUS) {
 							e.printStackTrace();
 							if (!isFinishing()) {
-								Toast.makeText(FeedActivity.this, " Tweet update failed:(", Toast.LENGTH_SHORT).show();
+								Toast.makeText(FeedActivity.this, " Tweet update failed:( with message: " +
+										e.getErrorMessage(), Toast.LENGTH_SHORT).show();
 							}
 
 						}
@@ -288,9 +312,79 @@ public class FeedActivity extends AppCompatActivity
 			StatusUpdate status = new StatusUpdate(message);
 			status.setMedia(file);
 			asyncTwitter.updateStatus(status);
+			asyncTwitter.getHomeTimeline();
 		} else {
 			asyncTwitter.updateStatus(message);
 		}
+	}
+
+	private void initAndLoadFeed() {
+		if (!ActiveSessionChecker.isActiveSessionValid(this, true)) {
+			return;
+		}
+
+		TwitterAuthToken token = TwitterCore.getInstance().getSessionManager().getActiveSession().getAuthToken();
+		Configuration configuration = new TwitterConfigurationBuilder().setAccessToken(token.token, token.secret).build();
+		if (homeTimelineAdapter == null) {
+			homeTimelineAdapter = new UserHomeTimelineAdapter(this, null);
+		}
+
+		if (recyclerViewFeedContent.getLayoutManager() == null) {
+			LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false);
+			recyclerViewFeedContent.setAdapter(homeTimelineAdapter);
+			recyclerViewFeedContent.setLayoutManager(layoutManager);
+			recyclerViewFeedContent.addItemDecoration(new RecyclerView.ItemDecoration() {
+				@Override
+				public void getItemOffsets(Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
+					super.getItemOffsets(outRect, view, parent, state);
+					outRect.top = getResources().getDimensionPixelSize(R.dimen.space_4dp);
+				}
+			});
+		}
+		TwitterListener listener = new TwitterAdapter() {
+			@Override
+			public void gotHomeTimeline(final ResponseList<Status> statuses) {
+				FeedActivity.this.runOnUiThread(new Runnable() {
+					@Override
+					public void run() {
+						if (swipeRefreshLayout.isRefreshing()) {
+							swipeRefreshLayout.setRefreshing(false);
+							initAndLoadFeed();
+						}
+						homeTimelineAdapter.addItems(statuses);
+
+					}
+				});
+
+			}
+
+			@Override
+			public void onException(final TwitterException e, final TwitterMethod method) {
+				FeedActivity.this.runOnUiThread(new Runnable() {
+					@Override
+					public void run() {
+						if (swipeRefreshLayout.isRefreshing()) {
+							swipeRefreshLayout.setRefreshing(false);
+						}
+						if (method == TwitterMethod.HOME_TIMELINE) {
+							e.printStackTrace();
+							if (!isFinishing()) {
+								Toast.makeText(FeedActivity.this, " Couldn't update feed:( with message: " + e.getErrorMessage()
+										, Toast.LENGTH_SHORT).show();
+							}
+
+						}
+					}
+				});
+			}
+		};
+
+		AsyncTwitterFactory factory = new AsyncTwitterFactory(configuration);
+		AsyncTwitter asyncTwitter = factory.getInstance();
+		asyncTwitter.addListener(listener);
+		asyncTwitter.getHomeTimeline();
+
+
 	}
 
 
@@ -301,11 +395,32 @@ public class FeedActivity extends AppCompatActivity
 			requestPermissions(new String[]{Manifest.permission.CAMERA}, CommonConstants.CAMERA_PERMISSION_REQUEST_CODE);
 			return;
 		}
-		Intent takePicture = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-		startActivityForResult(takePicture, 0);
+
+		File photoFile = null;
+		try {
+			photoFile = CameraCaptureHelper.createImageFile(this);
+		} catch (IOException ex) {
+			ex.printStackTrace();
+			return;
+		}
+
+		if (photoFile != null) {
+			attachedCapturedImagePath = photoFile.getAbsolutePath();
+			Uri photoURI = FileProvider.getUriForFile(this, "com.example.android.fileprovider", photoFile);
+			Intent takePicture = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+			if (takePicture.resolveActivity(getPackageManager()) != null) {
+				takePicture.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+				startActivityForResult(takePicture, REQUEST_IMAGE_CAPTURE);
+			}
+		}
 	}
 
 	private void removeAttachment() {
+		File tmpCapturedImg = null;
+		if (attachedCapturedImagePath != null && (tmpCapturedImg = new File(attachedCapturedImagePath)).exists()) {
+			tmpCapturedImg.delete();
+		}
+		attachedCapturedImagePath = null;
 		attachedImagePath = null;
 		tweetTextView.setText("");
 		AlphaAnimation fadeAnimation = new AlphaAnimation(1f, 0f);
@@ -343,7 +458,7 @@ public class FeedActivity extends AppCompatActivity
 		}
 		Intent pickPhoto = new Intent(Intent.ACTION_PICK,
 				android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-		startActivityForResult(pickPhoto, 1);
+		startActivityForResult(pickPhoto, REQUEST_PICK_IMAGE);
 	}
 
 
@@ -374,9 +489,36 @@ public class FeedActivity extends AppCompatActivity
 	}
 
 	@Override
+	protected void onStop() {
+		super.onStop();
+		isActive = false;
+		if (networkStateReceiver != null) {
+			unregisterReceiver(networkStateReceiver);
+			networkStateReceiver = null;
+		}
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+		isActive = true;
+		if (networkStateReceiver == null) {
+			initNetworkAnalyzer();
+		}
+	}
+
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
+		if (networkStateReceiver != null) {
+			unregisterReceiver(networkStateReceiver);
+		}
+	}
+
+	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-		if (requestCode == 0 || requestCode == 1) {
+		if (requestCode == REQUEST_PICK_IMAGE) {
 			if (resultCode == RESULT_OK) {
 				Uri selectedImage = data.getData();
 				attachedImagePath = UriUtil.getRealPathFromUri(getContentResolver(), selectedImage);
@@ -385,8 +527,11 @@ public class FeedActivity extends AppCompatActivity
 					frescoLoader.loadWithParams(attachedImagePath, attachedImagePreview, null);
 				}
 			}
-		} else {
-			authClient.onActivityResult(requestCode, resultCode, data);
+		} else if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK && !TextUtils.isEmpty
+				(attachedCapturedImagePath) && !isFinishing()) {
+			attachedImageContainer.setVisibility(View.VISIBLE);
+			attachedImagePath = attachedCapturedImagePath;
+			frescoLoader.loadWithParams(attachedImagePath, attachedImagePreview, null);
 		}
 
 	}

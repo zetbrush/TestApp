@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.v7.widget.CardView
+    android:id="@+id/card_container"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:card_view="http://schemas.android.com/apk/res-auto"
+    xmlns:fresco="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content" card_view:cardCornerRadius="0dp"
+    card_view:cardUseCompatPadding="false">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- header -->
+        <LinearLayout
+            android:id="@+id/header"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/card_header_height"
+            android:background="@drawable/card_header_bg_selector"
+            android:clickable="true"
+            android:gravity="center_vertical"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/card_header_height"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="@dimen/space_8dp">
+
+                <com.facebook.drawee.view.SimpleDraweeView
+                    android:id="@+id/icon"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    fresco:roundAsCircle="true"
+                />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:maxLines="1"
+                        android:paddingLeft="@dimen/space_8dp"
+                        android:paddingStart="@dimen/space_8dp"
+                        android:textColor="@android:color/black"
+                        android:textSize="@dimen/textSize_16"
+                        tools:text="Sample Title"/>
+
+                    <TextView
+                        android:id="@+id/subtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:maxLines="1"
+                        android:paddingLeft="@dimen/space_8dp"
+                        android:paddingStart="@dimen/space_8dp"
+                        android:textColor="@color/text_color_light_gray"
+                        android:textSize="@dimen/textSize_12"
+                        android:visibility="visible"
+                        tools:text="More info about title"/>
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <include layout="@layout/divider_horizontal_new"/>
+
+        </LinearLayout>
+
+
+        <!-- body -->
+        <LinearLayout
+            android:id="@+id/body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"/>
+        <TextView android:id="@+id/tweet_text"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginLeft="8dp"
+                  android:layout_marginStart="8dp"
+                  android:maxLines="4"
+                  android:textSize="@dimen/textSize_22"/>
+        <com.facebook.drawee.view.SimpleDraweeView android:id="@+id/main_image"
+                                                   android:layout_width="match_parent"
+                                                   android:layout_height="wrap_content"
+                                                   android:minHeight="60dp"
+                                                   fresco:actualImageScaleType="centerCrop"
+        />
+
+    </LinearLayout>
+</android.support.v7.widget.CardView>

@@ -2,7 +2,6 @@ package zetbrush.com.testapp;
 
 import android.app.Application;
 
-import com.facebook.common.logging.FLog;
 import com.facebook.drawee.backends.pipeline.Fresco;
 import com.twitter.sdk.android.Twitter;
 import com.twitter.sdk.android.core.TwitterAuthConfig;
@@ -29,7 +28,7 @@ public class TestAppApplication extends Application {
 		TwitterAuthConfig authConfig = new TwitterAuthConfig(TWITTER_KEY, TWITTER_SECRET);
 		Fabric.with(this, new Twitter(authConfig), new TwitterCore(authConfig), new TweetUi());
 		Fresco.initialize(this, ImagePipelineConfigFactory.getInstance().getImagePipelineConfig(this));
-		FLog.setMinimumLoggingLevel(FLog.VERBOSE);
+//		FLog.setMinimumLoggingLevel(FLog.VERBOSE);
 
 
 	}
