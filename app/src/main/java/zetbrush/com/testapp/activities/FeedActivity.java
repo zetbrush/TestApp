@@ -104,10 +104,6 @@ public class FeedActivity extends AppCompatActivity {
 
 		frescoLoader = new FrescoLoader();
 
-		progressContainer.setVisibility(View.VISIBLE);
-
-		progressContainer.setVisibility(View.GONE);
-
 		initAndLoadFeed();
 
 	}
