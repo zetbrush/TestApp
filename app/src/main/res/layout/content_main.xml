@@ -48,7 +48,7 @@
                     android:layout_height="match_parent"
                     android:layout_weight="0.2"
                     android:background="?attr/selectableItemBackground"
-                    android:src="@drawable/tw__btn_composer_tweet"
+                    android:src="@drawable/tw__composer_logo_blue"
                 />
 
             </LinearLayout>
