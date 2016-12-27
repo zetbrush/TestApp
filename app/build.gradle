@@ -8,15 +8,10 @@ buildscript {
     }
 }
 apply plugin: 'com.android.application'
-
-
 repositories {
     maven { url 'https://maven.fabric.io/public' }
 }
-
-
 apply plugin: 'io.fabric'
-
 android {
     compileSdkVersion 25
     buildToolsVersion '25.0.0'
@@ -37,15 +32,21 @@ android {
     dependencies {
         compile fileTree(include: ['*.jar'], dir: 'libs')
         compile 'com.facebook.fresco:fresco:0.14.1'
+
+        compile 'org.twitter4j:twitter4j-core:4.0.6'
+        compile 'org.twitter4j:twitter4j-async:4.0.6'
+
+        compile('com.twitter.sdk.android:twitter:2.3.0@aar') {
+            transitive = true;
+        }
         compile('com.twitter.sdk.android:twitter-core:2.3.0@aar') {
             transitive = true;
         }
-        compile('com.twitter.sdk.android:tweet-composer:2.3.1@aar') {
+        compile('com.twitter.sdk.android:tweet-ui:2.3.1@aar') {
             transitive = true;
         }
+        compile('com.twitter.sdk.android:tweet-composer:2.3.1@aar')
         compile 'com.android.support:appcompat-v7:25.1.0'
         compile 'com.android.support:design:25.1.0'
     }
 }
-
-

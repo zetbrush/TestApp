@@ -3,6 +3,7 @@ package zetbrush.com.testapp.fresco;
 import android.net.Uri;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import android.view.ViewGroup;
 
 import com.facebook.common.util.UriUtil;
 import com.facebook.drawee.backends.pipeline.Fresco;
@@ -27,16 +28,26 @@ public class FrescoLoader {
 
 
 	public void loadWithParams(String url, DraweeView imageView, ControllerListener<ImageInfo> listener) {
+
 		Uri uri = Uri.parse(url);
+		if (!UriUtil.isNetworkUri(uri)) {
+			uri = Uri.parse("file:" + url);
+		}
 
 		ImageRequestBuilder imageRequestBuilder = ImageRequestBuilder.newBuilderWithSource(uri);
 
 		if (UriUtil.isNetworkUri(uri)) {
 			imageRequestBuilder.setProgressiveRenderingEnabled(true);
 		} else {
-			imageRequestBuilder.setResizeOptions(new ResizeOptions(
-					imageView.getLayoutParams().width,
-					imageView.getLayoutParams().height));
+			int width, height;
+			if (imageView.getLayoutParams().width <= 0) {
+				width = ((ViewGroup) imageView.getParent()).getLayoutParams().width;
+				height = ((ViewGroup) imageView.getParent()).getLayoutParams().height;
+			} else {
+				width = imageView.getLayoutParams().width;
+				height = imageView.getLayoutParams().height;
+			}
+			imageRequestBuilder.setResizeOptions(new ResizeOptions(width, height));
 		}
 
 		DraweeController draweeController = Fresco.newDraweeControllerBuilder()

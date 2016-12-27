@@ -8,8 +8,11 @@ import android.util.Log;
 
 import com.twitter.sdk.android.core.Callback;
 import com.twitter.sdk.android.core.Result;
+import com.twitter.sdk.android.core.TwitterAuthToken;
+import com.twitter.sdk.android.core.TwitterCore;
 import com.twitter.sdk.android.core.TwitterException;
 import com.twitter.sdk.android.core.TwitterSession;
+import com.twitter.sdk.android.core.identity.TwitterAuthClient;
 import com.twitter.sdk.android.core.identity.TwitterLoginButton;
 
 import zetbrush.com.testapp.R;
@@ -20,23 +23,30 @@ import zetbrush.com.testapp.R;
 
 public class LoginActivity extends AppCompatActivity {
 	private TwitterLoginButton loginButton;
+	private TwitterAuthClient authClient;
+	private Intent mainPageIntent;
 
 
 	@Override
 	protected void onCreate(@Nullable Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.login_activity);
+		authClient = new TwitterAuthClient();
+
+		final TwitterSession session = TwitterCore.getInstance().getSessionManager().getActiveSession();
+
+		if (session != null) {
+			openFeed();
+		}
 
 		loginButton = (TwitterLoginButton) findViewById(R.id.twitter_login_button);
 		loginButton.setCallback(new Callback<TwitterSession>() {
 			@Override
 			public void success(Result<TwitterSession> result) {
-				// The TwitterSession is also available through:
-				// Twitter.getInstance().core.getSessionManager().getActiveSession()
-				TwitterSession session = result.data;
-				// with your app's user model
-//				String msg = "@" + session.getUserName() + " logged in! (#" + session.getUserId() + ")";
-//				Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+				TwitterSession session = TwitterCore.getInstance().getSessionManager().getActiveSession();
+				TwitterAuthToken authToken = session.getAuthToken();
+				openFeed();
+
 			}
 
 			@Override
@@ -47,11 +57,19 @@ public class LoginActivity extends AppCompatActivity {
 	}
 
 
+	private void openFeed() {
+		mainPageIntent = new Intent();
+		mainPageIntent.setClass(LoginActivity.this, FeedActivity.class);
+		startActivity(mainPageIntent);
+		LoginActivity.this.finish();
+	}
+
+
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-		// Make sure that the loginButton hears the result from any
-		// Activity that it triggered.
 		loginButton.onActivityResult(requestCode, resultCode, data);
+		authClient.onActivityResult(requestCode, resultCode, data);
 	}
 }
+
